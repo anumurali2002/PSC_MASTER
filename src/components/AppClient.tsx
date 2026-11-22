@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
+import SiteFooter from '@/components/SiteFooter'
 import { createClient } from '@/lib/supabase/client'
 import type {
   Attempt,
@@ -544,31 +546,37 @@ export default function AppClient() {
     return (
       <>
         <div className="login-wrap">
-          <section className="login-card">
-            <div className="brand-mark">P</div>
-            <p className="eyebrow">KERALA PSC PRACTICE</p>
-            <h1>PSC MASTER</h1>
-            <p className="muted">Your private practice room.</p>
-            <form onSubmit={login}>
-              <label htmlFor="email">Email</label>
-              <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="username" />
-              <label htmlFor="password">Password</label>
-              <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" autoComplete="current-password" />
-              <button id="loginBtn" className="primary full" type="submit" disabled={busy}>Sign in</button>
-            </form>
-            <p id="loginError" className="error" aria-live="polite">{loginError}</p>
-            <p className="tiny muted">Need an account? Ask your administrator.</p>
-          </section>
+          <div className="login-shell">
+            <section className="login-card" aria-labelledby="login-title">
+              <div className="brand-mark" aria-hidden="true">P</div>
+              <p className="eyebrow">KERALA PSC PRACTICE</p>
+              <h1 id="login-title">PSC MASTER</h1>
+              <p className="muted">Your private practice room for focused Kerala PSC preparation.</p>
+              <form onSubmit={login} className="login-form">
+                <label htmlFor="email">Email</label>
+                <input id="email" name="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="username" required />
+                <label htmlFor="password">Password</label>
+                <input id="password" name="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" autoComplete="current-password" required />
+                <button id="loginBtn" className="primary full" type="submit" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'}</button>
+              </form>
+              <p id="loginError" className="error" aria-live="polite">{loginError}</p>
+              <p className="tiny muted">Need an account? Ask your administrator.</p>
+            </section>
+            <SiteFooter />
+          </div>
         </div>
-        {toastState.msg && <div className={'toast' + (toastState.bad ? ' bad' : '')}>{toastState.msg}</div>}
+        {toastState.msg && <div className={'toast' + (toastState.bad ? ' bad' : '')} role="status">{toastState.msg}</div>}
       </>
     )
   }
 
   const admin = me.role === 'admin'
 
-  const navButton = (target: string, label: string) => (
-    <button className={'nav-item' + (page === target ? ' active' : '')} data-page={target} onClick={() => navigate(target)}>{label}</button>
+  const navButton = (target: string, label: string, icon: string) => (
+    <button className={'nav-item' + (page === target ? ' active' : '')} data-page={target} onClick={() => navigate(target)} aria-current={page === target ? 'page' : undefined}>
+      <span className="nav-icon" aria-hidden="true">{icon}</span>
+      <span className="nav-label">{label}</span>
+    </button>
   )
 
   const renderDashboard = () => {
@@ -886,24 +894,27 @@ export default function AppClient() {
   return (
     <>
       <div className="app">
-        <aside className="sidebar">
-          <div className="brand"><span className="brand-mark small">P</span><div><b>PSC MASTER</b><small>Practice portal</small></div></div>
-          <nav>
-            {!admin && navButton('dashboard', 'Overview')}
-            {!admin && navButton('subjects', 'Subjects & topics')}
-            {!admin && navButton('examsets', 'Exams')}
-            {!admin && navButton('revision', 'Wrong answers')}
-            {admin && navButton('manage', 'Manage questions')}
-            {admin && navButton('learners', 'Users')}
+        <aside className="sidebar" aria-label="Main navigation">
+          <div className="brand"><span className="brand-mark small" aria-hidden="true">P</span><div><b>PSC MASTER</b><small>Practice portal</small></div></div>
+          <nav aria-label="Primary">
+            {!admin && navButton('dashboard', 'Overview', '⌂')}
+            {!admin && navButton('subjects', 'Subjects', '▤')}
+            {!admin && navButton('examsets', 'Exams', '✎')}
+            {!admin && navButton('revision', 'Revision', '↺')}
+            {admin && navButton('manage', 'Questions', '☰')}
+            {admin && navButton('learners', 'Users', '◌')}
           </nav>
-          <div className="side-bottom"><span id="currentUser">{me.name || me.email}</span><button id="logoutBtn" className="text-button" onClick={logout}>Log out</button></div>
+          <div className="side-bottom"><span id="currentUser" className="side-user" title={me.email}>{me.name || me.email}</span><button id="logoutBtn" className="text-button" onClick={logout}>Log out</button></div>
         </aside>
-        <main className="main">
-          <header className="topbar"><div><p className="eyebrow">KERALA PSC · PERSONAL PRACTICE</p><h2 id="pageTitle">{pageTitles[page] || page}</h2></div><span className="pill" id="rolePill">{admin ? 'Administrator' : 'Learner'}</span></header>
-          {renderPage()}
-        </main>
+        <div className="app-shell">
+          <main className="main" id="main-content">
+            <header className="topbar"><div><p className="eyebrow">KERALA PSC • PERSONAL PRACTICE</p><h1 id="pageTitle" className="page-title">{pageTitles[page] || page}</h1></div><span className="pill" id="rolePill">{admin ? 'Administrator' : 'Learner'}</span></header>
+            {renderPage()}
+          </main>
+          <SiteFooter />
+        </div>
       </div>
-      {toastState.msg && <div className={'toast' + (toastState.bad ? ' bad' : '')} role="status">{toastState.msg}</div>}
+      {toastState.msg && <div className={'toast' + (toastState.bad ? ' bad' : '')} role="status" aria-live="polite">{toastState.msg}</div>}
     </>
   )
 }
