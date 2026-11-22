@@ -1,0 +1,61 @@
+PSC MASTER - ONLINE VERSION (UPDATE 4) - SETUP GUIDE
+=====================================================
+Files:  index.html, app.js, config.js, style.css   (the website)
+        setup.sql                                   (the database; used once)
+
+PART 1 - SUPABASE (database + logins)  ~10 minutes
+---------------------------------------------------
+1. Open your Supabase project -> left menu -> "SQL Editor" -> "New query".
+2. Open setup.sql, copy EVERYTHING, paste it in the editor, click "Run".
+   You should see "Success. No rows returned". (Safe to run again.)
+3. Left menu -> Authentication -> Users -> "Add user" -> "Create new user".
+   Enter YOUR email + a password. Tick "Auto Confirm User". Create.
+   >>> The FIRST account created becomes the ADMIN. Make yours first. <<<
+4. Left menu -> Authentication -> Sign In / Providers (or "Providers"/"Settings").
+   Turn OFF "Allow new users to sign up". (Stops strangers from creating accounts.)
+5. Create each friend the same way as step 3 (email + password, tick
+   "Auto Confirm User"). Send them their email and password privately.
+   They are learners automatically. To change a password later: Authentication
+   -> Users -> click the user -> Send password recovery / Update.
+
+PART 2 - PUT THE WEBSITE ONLINE WITH VERCEL  ~10 minutes
+--------------------------------------------------------
+Vercel gets your files from GitHub, so use GitHub as a middle step.
+1. github.com -> Sign up (free) -> "New repository". Name: psc-master.
+   Private is fine. Click "Create repository".
+2. Click "uploading an existing file". Drag in these 4 files (NOT inside a folder):
+   index.html, app.js, config.js, style.css
+   Click "Commit changes".
+3. vercel.com -> "Sign up" -> "Continue with GitHub".
+4. "Add New..." -> "Project" -> find psc-master -> "Import".
+   Framework Preset: "Other". Leave everything else empty. Click "Deploy".
+5. After ~1 minute you get a link like https://psc-master.vercel.app
+   Send this link to your friends.
+To change the app later: GitHub repo -> "Add file" -> "Upload files" -> replace
+the file -> Commit. Vercel updates the website automatically in ~1 minute.
+
+PART 3 - FIRST USE
+-------------------
+1. Open your link, sign in with YOUR email/password (you see the admin area).
+2. Manage questions -> "Bulk import" -> choose the CSV you exported from the
+   old app (Export CSV). Your questions are now online for everyone.
+3. Examination generator: pick subjects, size, learners -> Generate.
+4. Learners sign in on their own phones: they see subjects, practice, their
+   own exam papers, results and wrong answers.
+
+WHO CAN SEE WHAT
+-----------------
+Admin:   manage questions and exams; sees who finished and their SCORES.
+         Cannot see learners' individual answers or revision lists.
+Learner: sees only their own papers/results. Correct answers are never sent to
+         the phone before a test is submitted; marking happens on the server.
+
+THINGS TO KNOW
+---------------
+- config.js holds the public Supabase address and "publishable" key. That is
+  meant to be public. NEVER paste the "secret"/"service_role" key anywhere.
+- Free Supabase projects PAUSE after about 1 week with no use. If the app says
+  it cannot connect, open the Supabase dashboard and click "Restore project".
+- Keep a safety copy: Manage questions -> Export CSV, now and then.
+- The old offline data (browser storage) is not moved automatically. Move
+  questions with Export CSV (old app) -> Bulk import (new app).

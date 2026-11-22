@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PSC MASTER</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="loginView" class="login-wrap">
+    <section class="login-card">
+      <div class="brand-mark">P</div>
+      <p class="eyebrow">KERALA PSC PRACTICE</p>
+      <h1>PSC MASTER</h1>
+      <p class="muted">Your private practice room.</p>
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="you@example.com" autocomplete="username">
+      <label for="password">Password</label>
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+      <button id="loginBtn" class="primary full">Sign in</button>
+      <p id="loginError" class="error" aria-live="polite"></p>
+      <p class="tiny muted">Need an account? Ask your administrator.</p>
+    </section>
+  </div>
+
+  <div id="appView" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark small">P</span><div><b>PSC MASTER</b><small>Practice portal</small></div></div>
+      <nav>
+        <button class="nav-item learner-only active" data-page="dashboard">Overview</button>
+        <button class="nav-item learner-only" data-page="subjects">Subjects & topics</button>
+        <button class="nav-item learner-only" data-page="examsets">Exams</button>
+        <button class="nav-item learner-only" data-page="revision">Wrong answers</button>
+        <button class="nav-item admin-only" data-page="manage">Manage questions</button>
+        <button class="nav-item admin-only" data-page="learners">Learners</button>
+      </nav>
+      <div class="side-bottom"><span id="currentUser"></span><button id="logoutBtn" class="text-button">Log out</button></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar"><div><p class="eyebrow">KERALA PSC · PERSONAL PRACTICE</p><h2 id="pageTitle">Overview</h2></div><span class="pill" id="rolePill">Learner</span></header>
+
+      <section id="dashboardPage" class="page">
+        <div class="welcome"><div><p class="eyebrow light">YOUR PREPARATION SPACE</p><h1>Keep learning.<br>Keep improving.</h1><p>Choose a topic, practise MCQs and track your progress.</p></div><div class="welcome-symbol">✦</div></div>
+        <div class="stats">
+          <article class="stat"><span>Tests completed</span><strong id="testsStat">0</strong></article>
+          <article class="stat"><span>Questions attempted</span><strong id="attemptedStat">0</strong></article>
+          <article class="stat"><span>Correct answers</span><strong id="correctStat">0</strong></article>
+          <article class="stat"><span>Accuracy</span><strong id="accuracyStat">—</strong></article>
+        </div>
+        <div class="section-heading"><div><p class="eyebrow">GET STARTED</p><h3>Available subjects</h3></div><button class="text-button" data-goto="subjects">View all →</button></div>
+        <div id="dashboardSubjects" class="subject-grid"></div>
+      </section>
+
+      <section id="subjectsPage" class="page hidden">
+        <div class="section-heading"><div><p class="eyebrow">QUESTION BANK</p><h3>Choose a subject</h3><p class="muted">Select a topic to start a practice test.</p></div></div>
+        <div id="subjectList" class="subject-list"></div>
+      </section>
+
+      <section id="examsetsPage" class="page hidden">
+        <div class="section-heading"><div><p class="eyebrow">ASSIGNED PAPERS</p><h3>Your examinations</h3><p class="muted">Papers created for you by the administrator. Each paper can be completed once.</p></div></div>
+        <div id="examSetList" class="question-list"></div>
+      </section>
+
+      <section id="revisionPage" class="page hidden">
+        <div class="section-heading"><div><p class="eyebrow">LEARN FROM MISTAKES</p><h3>Your revision list</h3><p class="muted">Questions you answered incorrectly are collected here.</p></div></div>
+        <div id="revisionList"></div>
+      </section>
+
+      <section id="managePage" class="page hidden">
+        <div class="section-heading"><div><p class="eyebrow">ADMIN AREA</p><h3>Manage question bank</h3><p class="muted">Only the administrator can add and change questions.</p></div></div>
+        <form id="questionForm" class="form-card">
+          <div class="section-heading form-title"><h3 id="questionFormTitle">Add a question</h3></div>
+          <div class="form-grid">
+            <label>Subject<input id="qSubject" required placeholder="e.g. Indian Constitution"></label>
+            <label>Topic<input id="qTopic" required placeholder="e.g. Fundamental Rights"></label>
+          </div>
+          <label>Question<textarea id="qText" required rows="3" placeholder="Enter the question"></textarea></label>
+          <div class="form-grid">
+            <label>Option A<input id="opt0" required></label><label>Option B<input id="opt1" required></label>
+            <label>Option C<input id="opt2" required></label><label>Option D<input id="opt3" required></label>
+          </div>
+          <div class="form-grid">
+            <label>Correct option<select id="qAnswer"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select></label>
+            <label>Difficulty<select id="qDifficulty"><option>Basic</option><option selected>Intermediate</option><option>Advanced</option></select></label>
+          </div>
+          <label>Explanation<textarea id="qExplanation" rows="2" placeholder="Why is this the correct answer?"></textarea></label>
+          <div class="form-actions"><button id="saveQuestionBtn" class="primary" type="submit">Add question</button><button id="cancelEditBtn" class="secondary hidden" type="button">Cancel editing</button><span id="formMessage" class="success" aria-live="polite"></span></div>
+        </form>
+        <div class="section-heading"><div><h3>Bulk import questions</h3><p class="muted">Upload one CSV file to add many questions at once.</p></div><button id="templateBtn" class="secondary" type="button">Download CSV template</button></div>
+        <div class="form-card import-card">
+          <label>Choose question file (CSV)<input id="importFile" type="file" accept=".csv,text/csv"></label>
+          <p class="muted tiny">Required columns: Subject, Topic, Question, A, B, C, D, Correct. Optional: Difficulty, Explanation. In Correct, enter A, B, C or D.</p>
+          <button id="importBtn" class="primary" type="button">Import questions</button>
+          <span id="importMessage" class="success" aria-live="polite"></span>
+        </div>
+        <div class="section-heading"><div><h3>Saved questions</h3><p id="questionTotal" class="muted tiny">0 questions in your bank</p></div><button id="exportBtn" class="secondary">Export CSV</button></div>
+        <div id="adminQuestionList" class="question-list"></div>
+        <div class="section-heading"><div><h3>Examination generator</h3><p class="muted">Creates a separate paper for each selected learner: different random questions, different order and shuffled options.</p></div></div>
+        <div class="form-card gen-card">
+          <div class="form-grid"><label>Exam title<input id="genTitle" placeholder="e.g. Weekly test 1"></label><label>Questions per paper<input id="genSize" type="number" min="1" step="1" value="10"></label></div>
+          <div><b class="tiny">Subjects to include</b><div id="genSubjects" class="check-grid"></div><p id="genPool" class="muted tiny"></p></div>
+          <div><b class="tiny">Learners who get a paper</b><div id="genLearners" class="check-grid"></div></div>
+          <div class="form-actions"><button id="genBtn" class="primary" type="button">Generate exam for all learners</button><span id="genMessage" class="success" aria-live="polite"></span></div>
+        </div>
+        <div class="section-heading"><div><h3>Generated examinations</h3><p id="examSetTotal" class="muted tiny">0 examinations</p></div></div>
+        <div id="adminExamList" class="question-list"></div>
+        <p class="note">Your questions and exams are stored online. For a safety copy, use <b>Export CSV</b> above now and then.</p>
+      </section>
+
+      <section id="learnersPage" class="page hidden">
+        <div class="section-heading"><div><p class="eyebrow">ADMIN AREA</p><h3>Learners</h3><p class="muted">You can see completion and scores only, never individual answers.</p></div></div>
+        <div id="learnerList" class="question-list"></div>
+        <p class="note">To add a learner: Supabase dashboard &rarr; Authentication &rarr; Users &rarr; Add user (tick Auto Confirm User). They appear here after their first sign-in is possible.</p>
+      </section>
+
+      <section id="examPage" class="page hidden">
+        <div class="exam-head"><div><p class="eyebrow">PRACTICE TEST</p><h3 id="examTopic"></h3></div><span class="pill" id="questionCount"></span></div>
+        <div class="progress-track"><div id="progressBar"></div></div>
+        <article class="exam-card">
+          <div class="question-meta"><span id="questionNumber"></span><span id="difficultyLabel" class="pill"></span></div>
+          <h2 id="questionText"></h2>
+          <div id="options" class="options"></div>
+          <div class="exam-actions"><button id="prevBtn" class="secondary">← Previous</button><button id="nextBtn" class="primary">Next →</button></div>
+        </article>
+        <div class="exam-footer"><span id="answeredCount" class="muted"></span><button id="submitBtn" class="text-button danger-text">Submit test</button></div>
+      </section>
+
+      <section id="resultPage" class="page hidden">
+        <div class="result-card"><p class="eyebrow">TEST COMPLETED</p><h2>Your result</h2><div class="score-ring"><strong id="scorePercent">0%</strong><span>accuracy</span></div>
+          <div class="result-stats"><div><strong id="resultCorrect">0</strong><span>Correct</span></div><div><strong id="resultWrong">0</strong><span>Wrong</span></div><div><strong id="resultSkipped">0</strong><span>Skipped</span></div><div><strong id="resultTotal">0</strong><span>Total</span></div></div>
+          <button id="reviewBtn" class="primary">Review answers</button> <button id="backDashboard" class="secondary">Dashboard</button>
+        </div>
+        <div id="answerReview" class="answer-review hidden"></div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
