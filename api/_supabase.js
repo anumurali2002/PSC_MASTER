@@ -1,6 +1,6 @@
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://myvlcnbuezfwzlxeaxyi.supabase.co';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kcjnpwpgymdbiznfkejp.supabase.co';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
-const ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || 'sb_publishable_uVhJUi5ZhEu0g0iVi6mb8w_s6BK5TGz';
+const ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || 'sb_publishable_ououjfn3gwX9-k-onSd0Kw_i4MHYIN7';
 
 async function request(path, options = {}) {
   const { method = 'GET', body, apiKey = SERVICE_KEY, token } = options;

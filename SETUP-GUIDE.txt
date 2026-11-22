@@ -41,7 +41,7 @@ runs the small /api/users function used by the admin panel.
 
 1. Vercel project -> Settings -> Environment Variables. Add for Production
    (and Preview/Development if you use them):
-   - SUPABASE_URL = https://myvlcnbuezfwzlxeaxyi.supabase.co
+   - SUPABASE_URL = https://kcjnpwpgymdbiznfkejp.supabase.co
    - SUPABASE_ANON_KEY = the publishable key already in config.js
    - SUPABASE_SERVICE_ROLE_KEY = Supabase -> Project Settings -> API ->
      service_role (secret; never put it in config.js or commit it)
@@ -49,8 +49,9 @@ runs the small /api/users function used by the admin panel.
 2. Redeploy after changing environment variables (Deployments -> ... -> Redeploy).
 3. For local work copy .env.example to .env.local and fill in the same values.
    .env.local is ignored by Git and must never be committed.
-4. Object storage: create a Vercel Blob store when uploads are needed. The app
-   does not use it yet; the token is reserved for that future upload code.
+4. Object storage: create a Vercel Blob store, add BLOB_READ_WRITE_TOKEN, and
+   redeploy. Admins can then POST a multipart file named "file" to /api/upload
+   and receive a public URL (for example, from a future upload screen).
 
 PART 3 - FIRST USE
 -------------------

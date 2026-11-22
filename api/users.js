@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
     const admin = await requireAdmin(req);
     if (req.method === 'GET') {
       const [auth, profiles] = await Promise.all([
-        request('/auth/v1/users?perPage=1000&page=1'),
+        request('/auth/v1/admin/users?perPage=1000&page=1'),
         request('/rest/v1/profiles?select=id,email,name,role,created_at&order=created_at.asc')
       ]);
       const byId = new Map(profiles.map(p => [p.id, p]));
@@ -40,7 +40,7 @@ module.exports = async function handler(req, res) {
       const role = body.role === 'admin' ? 'admin' : 'learner';
       if (!/^\S+@\S+\.\S+$/.test(email)) throw bad('Enter a valid email address.');
       if (password.length < 6) throw bad('Password must be at least 6 characters.');
-      const created = await request('/auth/v1/users', {
+      const created = await request('/auth/v1/admin/users', {
         method: 'POST',
         body: { email, password, email_confirm: true, user_metadata: { name: name || email.split('@')[0] } }
       });
@@ -77,7 +77,7 @@ module.exports = async function handler(req, res) {
         const admins = await request('/rest/v1/profiles?select=id&role=eq.admin');
         if (admins.length <= 1) throw bad('At least one admin must remain.');
       }
-      await request(`/auth/v1/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      await request(`/auth/v1/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
       respond(res, 200, { ok: true });
       return;
     }
