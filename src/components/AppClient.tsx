@@ -663,8 +663,8 @@ export default function AppClient() {
                 <form onSubmit={signup} className="login-form">
                   <label htmlFor="fullName">Full Name</label>
                   <input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name" required />
-                  <label htmlFor="username">Username</label>
-                  <input id="username" value={username} onChange={e => setUsername(e.target.value)} placeholder="username" autoComplete="username" required />
+                  <label htmlFor="username">Username <span className="muted">(optional)</span></label>
+                  <input id="username" value={username} onChange={e => setUsername(e.target.value)} placeholder="username (optional)" autoComplete="username" />
                   <label htmlFor="email">Email Address</label>
                   <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" required />
                   <label htmlFor="password">Password</label>
@@ -1020,7 +1020,7 @@ export default function AppClient() {
     const st = statCards(myAttempts)
     return (
       <section className="page">
-        <div className="section-heading"><div><p className="eyebrow">STUDENT PROFILE</p><h3>{me!.name || me!.email}</h3><p className="muted">@{me!.username || 'username'} • {me!.email}</p></div></div>
+        <div className="section-heading"><div><p className="eyebrow">STUDENT PROFILE</p><h3>{me!.name || me!.email}</h3><p className="muted">{me!.username ? '@' + me!.username + ' • ' : ''}{me!.email}</p></div></div>
         <div className="stats">
           <article className="stat"><span>Total Exams Attempted</span><strong>{st.count}</strong></article>
           <article className="stat"><span>Questions Answered</span><strong>{st.total}</strong></article>
@@ -1033,9 +1033,9 @@ export default function AppClient() {
         </div>
         <div className="form-card">
           <div className="section-heading form-title"><h3>Profile settings</h3></div>
-          <form className="form-grid" onSubmit={(e)=>run(async()=>{e.preventDefault(); await apiUsers('PATCH',{id:me!.id,name:fullName||me!.name,username:(username||me!.username||'').toLowerCase()}); showToast('Profile updated.'); await loadProfile()})}>
+          <form className="form-grid" onSubmit={(e)=>run(async()=>{e.preventDefault(); const uname=(username.trim()||'').toLowerCase(); await apiUsers('PATCH',{id:me!.id,name:fullName.trim()||me!.name,username:uname||null}); showToast('Profile updated.'); await loadProfile()})}>
             <label>Full Name<input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder={me!.name||''} /></label>
-            <label>Username<input value={username} onChange={e=>setUsername(e.target.value)} placeholder={me!.username||''} /></label>
+            <label>Username (optional)<input value={username} onChange={e=>setUsername(e.target.value)} placeholder={me!.username||'Optional'} /></label>
             <div className="form-actions"><button className="primary" type="submit">Save profile</button></div>
           </form>
           <form className="form-grid" onSubmit={(e)=>run(async()=>{e.preventDefault(); if(password.length<6){showToast('Password must be at least 6 characters.',true);return;} if(password!==confirmPassword){showToast('Passwords do not match.',true);return;} const {error}=await sb.auth.updateUser({password}); if(error) throw error; setPassword(''); setConfirmPassword(''); showToast('Password changed.')})}>
