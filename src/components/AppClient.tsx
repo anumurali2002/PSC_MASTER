@@ -456,22 +456,44 @@ export default function AppClient() {
   }
 
   const generateExam = () => run(async () => {
+    const title = genTitle.trim()
     const size = Number(genSize)
-    if (!genSubjects.length) { setGenMessage('Select at least one subject.'); return }
-    if (!genLearners.length) { setGenMessage('Select at least one learner.'); return }
+    const selectedSubjects = [...new Set(genSubjects)]
+    const selectedLearners = [...new Set(genLearners)]
+    setGenMessage('')
+    if (!title) { setGenMessage('Enter an exam title before generating.'); return }
     if (!Number.isInteger(size) || size < 1) { setGenMessage('Enter a whole number of questions (1 or more).'); return }
-    const pool = questions.filter(q => genSubjects.includes(q.subject))
-    if (size > pool.length) { setGenMessage('Only ' + pool.length + ' questions are available in the selected subjects.'); return }
-    const title = genTitle.trim() || ('Exam ' + new Date().toLocaleDateString())
+    if (!selectedSubjects.length) { setGenMessage('Select at least one subject/topic.'); return }
+    if (!selectedLearners.length) { setGenMessage('Select at least one learner.'); return }
+
     setBusy(true)
     try {
-      const created = await ok<Array<{ id: number }>>(sb.from('exams').insert({ title, size, subjects: genSubjects }).select('id'))
+      const pool: Question[] = []
+      for (let i = 0; i < selectedSubjects.length; i += 20) {
+        const chunk = selectedSubjects.slice(i, i + 20)
+        let from = 0
+        for (;;) {
+          const { data, error } = await sb.from('questions').select('*').in('subject', chunk).order('id', { ascending: true }).range(from, from + 999)
+          if (error) throw new Error(error.message)
+          const rows = (data ?? []) as Question[]
+          pool.push(...rows)
+          if (rows.length < 1000) break
+          from += 1000
+        }
+      }
+      const uniquePool = Array.from(new Map(pool.map(q => [q.id, q])).values())
+      if (size > uniquePool.length) {
+        setGenMessage('Only ' + uniquePool.length + ' questions are available in the selected subjects/topics. Reduce the question count or select more subjects.')
+        return
+      }
+
+      const created = await ok<Array<{ id: number }>>(sb.from('exams').insert({ title, size, subjects: selectedSubjects }).select('id'))
       const examId = created[0].id
       try {
-        await ok(sb.from('exam_papers').insert(genLearners.map(id => ({
+        const papers = selectedLearners.map(id => ({
           exam_id: examId,
           learner_id: id,
-          items: shuffle(pool).slice(0, size).map(q => {
+          items: shuffle(uniquePool).slice(0, size).map(q => {
             const perm = shuffle([0, 1, 2, 3])
             return {
               id: q.id, subject: q.subject, topic: q.topic, qtext: q.qtext,
@@ -479,13 +501,19 @@ export default function AppClient() {
               options: perm.map(i => q.options[i]), answer: perm.indexOf(q.answer)
             }
           })
-        }))))
+        }))
+        for (let i = 0; i < papers.length; i += 100) {
+          await ok(sb.from('exam_papers').insert(papers.slice(i, i + 100)))
+        }
       } catch (err) {
         await sb.from('exams').delete().eq('id', examId)
         throw err
       }
+
       setGenTitle('')
-      setGenMessage('Exam created: a separate ' + size + '-question paper for each of ' + genLearners.length + ' learners.')
+      setGenSubjects([])
+      setGenLearners([])
+      setGenMessage('Exam "' + title + '" created: ' + size + ' questions from ' + selectedSubjects.length + ' subject(s), assigned to ' + selectedLearners.length + ' learner(s).')
       await loadManage()
     } finally { setBusy(false) }
   })
@@ -791,7 +819,7 @@ export default function AppClient() {
           <label>Exam title<input value={genTitle} onChange={e => setGenTitle(e.target.value)} placeholder="e.g. Weekly test 1" /></label>
           <label>Questions per paper<input type="number" min="1" step="1" value={genSize} onChange={e => setGenSize(e.target.value)} /></label>
         </div>
-        <div><b className="tiny">Subjects to include</b><div className="check-grid">
+        <div><b className="tiny">Subjects/topics to include</b><div className="check-grid">
           {subjects.map(subject => (
             <label key={subject} className="check-item"><input type="checkbox" checked={genSubjects.includes(subject)} onChange={() => updateSubjects(subject)} /><span>{subject} ({questions.filter(q => q.subject === subject).length})</span></label>
           ))}
