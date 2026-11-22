@@ -23,16 +23,14 @@ type ExamPaperLink = { exam_id: number; learner_id: string }
 const sb = createClient()
 
 const pageTitles: Record<string, string> = {
-  dashboard: 'Dashboard',
-  subjects: 'Available Exams',
-  examsets: 'Exam History',
-  revision: 'Revision',
-  profile: 'My Profile',
-  analytics: 'Performance Analytics',
-  manage: 'Manage Questions',
-  learners: 'Registered Students',
-  exam: 'Practice Test',
-  result: 'Test Result'
+  dashboard: 'Overview',
+  subjects: 'Subjects & topics',
+  examsets: 'Examinations',
+  revision: 'Wrong answers',
+  manage: 'Manage questions',
+  learners: 'Users',
+  exam: 'Practice test',
+  result: 'Test result'
 }
 
 async function ok<T>(promise: PromiseLike<Result>): Promise<T> {
@@ -120,14 +118,9 @@ const emptyQuestionForm = {
 export default function AppClient() {
   const [loading, setLoading] = useState(true)
   const [me, setMe] = useState<Profile | null>(null)
-  const [authMode, setAuthMode] = useState<'login'|'signup'|'forgot'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [fullName, setFullName] = useState('')
-  const [username, setUsername] = useState('')
   const [loginError, setLoginError] = useState('')
-  const [loginInfo, setLoginInfo] = useState('')
   const [busy, setBusy] = useState(false)
   const [page, setPage] = useState('dashboard')
   const [toastState, setToastState] = useState({ msg: '', bad: false })
@@ -136,8 +129,6 @@ export default function AppClient() {
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
   const [attempts, setAttempts] = useState<Attempt[]>([])
-  const [myAttempts, setMyAttempts] = useState<Attempt[]>([])
-  const [selectedAttempt, setSelectedAttempt] = useState<any | null>(null)
   const [examSets, setExamSets] = useState<ExamSummary[]>([])
   const [revision, setRevision] = useState<Question[]>([])
   const [users, setUsers] = useState<ManagedUser[]>([])
@@ -201,22 +192,16 @@ export default function AppClient() {
 
   const loadDashboard = useCallback(async () => {
     if (!me) return
-    const [rows, hist] = await Promise.all([
-      ok<Attempt[]>(sb.from('attempts').select('id,user_id,exam_id,exam_title,kind,total,correct,wrong,skipped,created_at').eq('user_id', me.id).order('created_at',{ascending:false})),
+    const [rows] = await Promise.all([
+      ok<Attempt[]>(sb.from('attempts').select('total,correct').eq('user_id', me.id)),
       loadCatalog()
     ])
     setAttempts(rows)
-    setMyAttempts(rows)
   }, [me, loadCatalog])
 
   const loadExamSets = useCallback(async () => {
-    const [sets, hist] = await Promise.all([
-      rpc<ExamSummary[]>('get_my_exams'),
-      ok<Attempt[]>(sb.from('attempts').select('id,user_id,exam_id,exam_title,kind,total,correct,wrong,skipped,created_at').eq('user_id', me!.id).order('created_at',{ascending:false}))
-    ])
-    setExamSets(sets)
-    setMyAttempts(hist)
-  }, [me])
+    setExamSets(await rpc<ExamSummary[]>('get_my_exams'))
+  }, [])
 
   const loadRevisionList = useCallback(async () => {
     setRevision(await rpc<Question[]>('get_my_revision'))
@@ -254,8 +239,8 @@ export default function AppClient() {
     const { data } = await sb.auth.getSession()
     const uid = data.session?.user.id
     if (!uid) { setMe(null); setLoading(false); return }
-    const rows = await ok<Profile[]>(sb.from('profiles').select('id,email,name,username,role,created_at,disabled').eq('id', uid))
-    const profile = rows[0] as Profile | undefined
+    const rows = await ok<Profile[]>(sb.from('profiles').select('id,email,name,role').eq('id', uid))
+    const profile = rows[0]
     if (!profile) {
       await sb.auth.signOut()
       setMe(null)
@@ -263,16 +248,9 @@ export default function AppClient() {
       setLoading(false)
       return
     }
-    if (profile.disabled) {
-      await sb.auth.signOut()
-      setMe(null)
-      setLoginError('Your account has been disabled. Contact the administrator.')
-      setLoading(false)
-      return
-    }
     setMe(profile)
     setLoading(false)
-    setPage(p => (p === 'dashboard' || p === 'manage') ? (profile.role === 'admin' ? 'manage' : 'dashboard') : p)
+    setPage(profile.role === 'admin' ? 'manage' : 'dashboard')
   }, [])
 
   useEffect(() => {
@@ -300,53 +278,14 @@ export default function AppClient() {
 
   const login = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoginError(''); setLoginInfo('')
+    setLoginError('')
     if (!email || !password) { setLoginError('Enter your email and password.'); return }
     setBusy(true)
-    const { error } = await sb.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
+    const { error } = await sb.auth.signInWithPassword({ email, password })
     setBusy(false)
-    if (error) setLoginError(/invalid login/i.test(error.message) ? 'Email or password is incorrect.' : error.message)
-  }
-
-  const signup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoginError(''); setLoginInfo('')
-    const name = fullName.trim(); const uname = username.trim().toLowerCase(); const em = email.trim().toLowerCase()
-    if (!name || !uname || !em || !password || !confirmPassword) { setLoginError('Complete all registration fields.'); return }
-    if (!/^[a-z0-9_.-]{3,30}$/.test(uname)) { setLoginError('Username must be 3-30 chars: letters, numbers, _, ., -'); return }
-    if (!/^\S+@\S+\.\S+$/.test(em)) { setLoginError('Enter a valid email address.'); return }
-    if (password.length < 6) { setLoginError('Password must be at least 6 characters.'); return }
-    if (password !== confirmPassword) { setLoginError('Passwords do not match.'); return }
-    setBusy(true)
-    try {
-      // username uniqueness check in profiles
-      const { data: existing } = await sb.from('profiles').select('id').ilike('username', uname).maybeSingle()
-      if (existing) { setLoginError('Username is already taken.'); return }
-      const { data, error } = await sb.auth.signUp({ email: em, password, options: { data: { name, username: uname } } })
-      if (error) { setLoginError(error.message); return }
-      if (data.user) {
-        await sb.from('profiles').upsert({ id: data.user.id, email: em, name, username: uname, role: 'learner' }, { onConflict: 'id' })
-      }
-      if (data.session) {
-        setLoginInfo('Account created. Redirecting to dashboard...')
-        setPage('dashboard')
-      } else {
-        setLoginInfo('Registration successful. Check your email to confirm, then sign in.')
-        setAuthMode('login')
-      }
-    } finally { setBusy(false) }
-  }
-
-  const forgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoginError(''); setLoginInfo('')
-    const em = email.trim().toLowerCase()
-    if (!/^\S+@\S+\.\S+$/.test(em)) { setLoginError('Enter your email address.'); return }
-    setBusy(true)
-    const { error } = await sb.auth.resetPasswordForEmail(em, { redirectTo: window.location.origin })
-    setBusy(false)
-    if (error) setLoginError(error.message)
-    else setLoginInfo('If the account exists, a password reset email has been sent.')
+    if (error) {
+      setLoginError(/invalid login/i.test(error.message) ? 'Email or password is incorrect.' : error.message)
+    }
   }
 
   const logout = () => run(async () => {
@@ -398,20 +337,13 @@ export default function AppClient() {
   })
 
   const reviewAttempt = (attemptId: number) => run(async () => {
-    let detail: any = null
-    try { detail = await rpc<any>('get_my_attempt_detail', { p_attempt_id: attemptId }) } catch {}
-    if (!detail) {
-      const rows = await ok<Array<{ details: ReviewItem[] }>>(sb.from('attempt_details').select('details').eq('attempt_id', attemptId))
-      if (!rows.length) { showToast('Details for this attempt are not available.', true); return }
-      detail = { review: rows[0].details }
-    }
-    const details = (detail.review || detail.details || []) as ReviewItem[]
-    const correct = Number(detail.correct ?? details.filter(x => x.chosen === x.answer).length)
-    const skipped = Number(detail.skipped ?? details.filter(x => x.chosen === null).length)
-    const total = Number(detail.total ?? details.length)
-    setSelectedAttempt(detail)
+    const rows = await ok<Array<{ details: ReviewItem[] }>>(sb.from('attempt_details').select('details').eq('attempt_id', attemptId))
+    if (!rows.length) { showToast('Details for this attempt are not available.', true); return }
+    const details = rows[0].details
+    const correct = details.filter(x => x.chosen === x.answer).length
+    const skipped = details.filter(x => x.chosen === null).length
     setLastReview(details)
-    setResult({ review: details, total, correct, skipped, wrong: Number(detail.wrong ?? total - correct - skipped) })
+    setResult({ review: details, total: details.length, correct, skipped, wrong: details.length - correct - skipped })
     setReviewOpen(true)
     setPage('result')
   })
@@ -647,49 +579,16 @@ export default function AppClient() {
               <div className="brand-mark" aria-hidden="true">P</div>
               <p className="eyebrow">KERALA PSC PRACTICE</p>
               <h1 id="login-title">PSC MASTER</h1>
-              <p className="muted">{authMode==='signup' ? 'Create your student account.' : authMode==='forgot' ? 'Reset your password.' : 'Your private practice room for focused Kerala PSC preparation.'}</p>
-
-              {authMode === 'login' && (
-                <form onSubmit={login} className="login-form">
-                  <label htmlFor="email">Email</label>
-                  <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="username" required />
-                  <label htmlFor="password">Password</label>
-                  <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" autoComplete="current-password" required />
-                  <button className="primary full" type="submit" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'}</button>
-                </form>
-              )}
-
-              {authMode === 'signup' && (
-                <form onSubmit={signup} className="login-form">
-                  <label htmlFor="fullName">Full Name</label>
-                  <input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name" required />
-                  <label htmlFor="username">Username <span className="muted">(optional)</span></label>
-                  <input id="username" value={username} onChange={e => setUsername(e.target.value)} placeholder="username (optional)" autoComplete="username" />
-                  <label htmlFor="email">Email Address</label>
-                  <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" required />
-                  <label htmlFor="password">Password</label>
-                  <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 6 characters" autoComplete="new-password" required minLength={6} />
-                  <label htmlFor="confirmPassword">Confirm Password</label>
-                  <input id="confirmPassword" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirm password" autoComplete="new-password" required minLength={6} />
-                  <button className="primary full" type="submit" disabled={busy}>{busy ? 'Creating account...' : 'Register'}</button>
-                </form>
-              )}
-
-              {authMode === 'forgot' && (
-                <form onSubmit={forgotPassword} className="login-form">
-                  <label htmlFor="email">Email Address</label>
-                  <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" required />
-                  <button className="primary full" type="submit" disabled={busy}>{busy ? 'Sending...' : 'Send reset link'}</button>
-                </form>
-              )}
-
+              <p className="muted">Your private practice room for focused Kerala PSC preparation.</p>
+              <form onSubmit={login} className="login-form">
+                <label htmlFor="email">Email</label>
+                <input id="email" name="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="username" required />
+                <label htmlFor="password">Password</label>
+                <input id="password" name="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" autoComplete="current-password" required />
+                <button id="loginBtn" className="primary full" type="submit" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'}</button>
+              </form>
               <p id="loginError" className="error" aria-live="polite">{loginError}</p>
-              {loginInfo && <p className="success" aria-live="polite">{loginInfo}</p>}
-              <div className="auth-links tiny muted">
-                {authMode !== 'login' && <button type="button" className="text-button" onClick={() => { setAuthMode('login'); setLoginError(''); setLoginInfo('') }}>Back to login</button>}
-                {authMode === 'login' && <button type="button" className="text-button" onClick={() => { setAuthMode('signup'); setLoginError(''); setLoginInfo('') }}>Create account</button>}
-                {authMode === 'login' && <button type="button" className="text-button" onClick={() => { setAuthMode('forgot'); setLoginError(''); setLoginInfo('') }}>Forgot password?</button>}
-              </div>
+              <p className="tiny muted">Need an account? Ask your administrator.</p>
             </section>
             <SiteFooter />
           </div>
@@ -1008,102 +907,10 @@ export default function AppClient() {
     </section>
   )
 
-  const statCards = (rows: Attempt[]) => {
-    const total = rows.reduce((a,x)=>a+x.total,0), correct = rows.reduce((a,x)=>a+x.correct,0), wrong = rows.reduce((a,x)=>a+x.wrong,0)
-    const acc = total ? Math.round(correct*100/total) : 0
-    const avg = rows.length ? Math.round(rows.reduce((a,x)=>a + (x.total?x.correct*100/x.total:0),0)/rows.length) : 0
-    const best = rows.length ? Math.max(...rows.map(x=>x.total?Math.round(x.correct*100/x.total):0)) : 0
-    return {count:rows.length,total,correct,wrong,acc,avg,best}
-  }
-
-  const renderProfile = () => {
-    const st = statCards(myAttempts)
-    return (
-      <section className="page">
-        <div className="section-heading"><div><p className="eyebrow">STUDENT PROFILE</p><h3>{me!.name || me!.email}</h3><p className="muted">{me!.username ? '@' + me!.username + ' • ' : ''}{me!.email}</p></div></div>
-        <div className="stats">
-          <article className="stat"><span>Total Exams Attempted</span><strong>{st.count}</strong></article>
-          <article className="stat"><span>Questions Answered</span><strong>{st.total}</strong></article>
-          <article className="stat"><span>Correct Answers</span><strong>{st.correct}</strong></article>
-          <article className="stat"><span>Wrong Answers</span><strong>{st.wrong}</strong></article>
-          <article className="stat"><span>Overall Accuracy</span><strong>{st.acc}%</strong></article>
-          <article className="stat"><span>Average Score</span><strong>{st.avg}%</strong></article>
-          <article className="stat"><span>Best Score</span><strong>{st.best}%</strong></article>
-          <article className="stat"><span>Account Created</span><strong style={{fontSize:16}}>{me!.created_at ? fmtDate(me!.created_at) : '—'}</strong></article>
-        </div>
-        <div className="form-card">
-          <div className="section-heading form-title"><h3>Profile settings</h3></div>
-          <form className="form-grid" onSubmit={(e)=>run(async()=>{e.preventDefault(); const uname=(username.trim()||'').toLowerCase(); await apiUsers('PATCH',{id:me!.id,name:fullName.trim()||me!.name,username:uname||null}); showToast('Profile updated.'); await loadProfile()})}>
-            <label>Full Name<input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder={me!.name||''} /></label>
-            <label>Username (optional)<input value={username} onChange={e=>setUsername(e.target.value)} placeholder={me!.username||'Optional'} /></label>
-            <div className="form-actions"><button className="primary" type="submit">Save profile</button></div>
-          </form>
-          <form className="form-grid" onSubmit={(e)=>run(async()=>{e.preventDefault(); if(password.length<6){showToast('Password must be at least 6 characters.',true);return;} if(password!==confirmPassword){showToast('Passwords do not match.',true);return;} const {error}=await sb.auth.updateUser({password}); if(error) throw error; setPassword(''); setConfirmPassword(''); showToast('Password changed.')})}>
-            <label>New Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} minLength={6} /></label>
-            <label>Confirm Password<input type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} minLength={6} /></label>
-            <div className="form-actions"><button className="secondary" type="submit">Change password</button></div>
-          </form>
-        </div>
-      </section>
-    )
-  }
-
-  const renderAnalytics = () => {
-    const rows = [...myAttempts].reverse()
-    const max = 100
-    const vals = rows.map(a=>a.total?Math.round(a.correct*100/a.total):0)
-    const line = (v:number[], color:string) => {
-      if(!v.length) return <p className="muted">No attempt data yet.</p>
-      const w=600,h=180,p=20; const step = v.length>1 ? (w-p*2)/(v.length-1) : 0
-      const pts = v.map((val,i)=> (p+i*step)+','+(h-p-(val/max)*(h-p*2))).join(' ')
-      return <svg viewBox={'0 0 '+w+' '+h} className="chart-svg" role="img"><polyline fill="none" stroke={color} strokeWidth="3" points={pts} />{v.map((val,i)=><circle key={i} cx={p+i*step} cy={h-p-(val/max)*(h-p*2)} r="4" fill={color} />)}</svg>
-    }
-    const st = statCards(myAttempts)
-    const subjectMap: Record<string,{total:number,correct:number}> = {}
-    myAttempts.forEach(a=>{ const k = a.exam_title || (a.kind==='exam'?'Exam':'Practice'); subjectMap[k] ??= {total:0,correct:0}; subjectMap[k].total+=a.total; subjectMap[k].correct+=a.correct })
-    const subjects = Object.entries(subjectMap).slice(0,6)
-    return (
-      <section className="page">
-        <div className="section-heading"><div><p className="eyebrow">ANALYTICS</p><h3>Performance Analytics</h3></div></div>
-        <div className="stats">
-          <article className="stat"><span>Average Score</span><strong>{st.avg}%</strong></article>
-          <article className="stat"><span>Best Score</span><strong>{st.best}%</strong></article>
-          <article className="stat"><span>Accuracy</span><strong>{st.acc}%</strong></article>
-          <article className="stat"><span>Attempts</span><strong>{st.count}</strong></article>
-        </div>
-        <div className="form-card"><h3>Exam Performance Trend</h3>{line(vals,'#176b55')}</div>
-        <div className="form-card"><h3>Accuracy Trend</h3>{line(vals,'#1d6553')}</div>
-        <div className="form-card"><h3>Correct vs Wrong</h3>
-          <div className="bar-wrap">
-            <div className="bar-row"><span>Correct</span><div className="bar-bg"><div className="bar-fill good" style={{width:(st.total?st.correct*100/st.total:0)+'%'}} /></div><b>{st.correct}</b></div>
-            <div className="bar-row"><span>Wrong</span><div className="bar-bg"><div className="bar-fill bad" style={{width:(st.total?st.wrong*100/st.total:0)+'%'}} /></div><b>{st.wrong}</b></div>
-          </div>
-        </div>
-        <div className="form-card"><h3>Recent/Subject Performance</h3>
-          {subjects.length ? subjects.map(([name,vv])=>{const p=vv.total?Math.round(vv.correct*100/vv.total):0; return <div key={name} className="bar-row"><span>{name}</span><div className="bar-bg"><div className="bar-fill good" style={{width:p+'%'}} /></div><b>{p}%</b></div>}) : <p className="muted">No data yet.</p>}
-        </div>
-      </section>
-    )
-  }
-
-  const renderExamHistory = () => (
-    <section className="page">
-      <div className="section-heading"><div><p className="eyebrow">HISTORY</p><h3>Exam History</h3><p className="muted">Review your previous attempts. Results are read-only.</p></div></div>
-      <div className="form-card table-wrap">
-        <table className="result-table"><thead><tr><th>Exam</th><th>Date</th><th>Total</th><th>Correct</th><th>Wrong</th><th>Score</th><th>Accuracy</th><th>Action</th></tr></thead><tbody>
-          {myAttempts.map(a=>{const acc=a.total?Math.round(a.correct*100/a.total):0; return <tr key={a.id}><td>{a.exam_title || (a.kind==='exam'?'Exam':'Practice')}</td><td>{fmtDate(a.created_at)}</td><td>{a.total}</td><td>{a.correct}</td><td>{a.wrong}</td><td>{a.correct}/{a.total}</td><td>{acc}%</td><td><button className="secondary small-btn" onClick={()=>reviewAttempt(a.id)}>View Details</button></td></tr>})}
-        </tbody></table>
-        {!myAttempts.length && <p className="muted">No exam attempts yet.</p>}
-      </div>
-    </section>
-  )
-
   const renderPage = () => {
     if (page === 'dashboard') return renderDashboard()
     if (page === 'subjects') return renderSubjects()
-    if (page === 'examsets') return renderExamHistory()
-    if (page === 'profile') return renderProfile()
-    if (page === 'analytics') return renderAnalytics()
+    if (page === 'examsets') return renderExamSets()
     if (page === 'revision') return renderRevision()
     if (page === 'manage') return renderManage()
     if (page === 'learners') return renderUsers()
@@ -1118,14 +925,12 @@ export default function AppClient() {
         <aside className="sidebar" aria-label="Main navigation">
           <div className="brand"><span className="brand-mark small" aria-hidden="true">P</span><div><b>PSC MASTER</b><small>Practice portal</small></div></div>
           <nav aria-label="Primary">
-            {!admin && navButton('dashboard', 'Dashboard', '⌂')}
-            {!admin && navButton('subjects', 'Available Exams', '▤')}
-            {!admin && navButton('examsets', 'Exam History', '✎')}
-            {!admin && navButton('profile', 'My Profile', '◉')}
-            {!admin && navButton('analytics', 'Analytics', '📈'.replace('📈','▥'))}
+            {!admin && navButton('dashboard', 'Overview', '⌂')}
+            {!admin && navButton('subjects', 'Subjects', '▤')}
+            {!admin && navButton('examsets', 'Exams', '✎')}
             {!admin && navButton('revision', 'Revision', '↺')}
             {admin && navButton('manage', 'Questions', '☰')}
-            {admin && navButton('learners', 'Students', '◌')}
+            {admin && navButton('learners', 'Users', '◌')}
           </nav>
           <div className="side-bottom"><span id="currentUser" className="side-user" title={me.email}>{me.name || me.email}</span><button id="logoutBtn" className="text-button" onClick={logout}>Log out</button></div>
         </aside>

@@ -8,14 +8,9 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
   name text not null default '',
-  username text unique,
   role text not null default 'learner' check (role in ('admin','learner')),
-  disabled boolean not null default false,
   created_at timestamptz not null default now()
 );
-alter table public.profiles add column if not exists username text;
-alter table public.profiles add column if not exists disabled boolean not null default false;
-create unique index if not exists profiles_username_unique on public.profiles (lower(username)) where username is not null;
 
 create table if not exists public.questions (
   id bigint generated always as identity primary key,
@@ -81,12 +76,11 @@ $$;
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.profiles (id, email, name, username, role)
+  insert into public.profiles (id, email, name, role)
   values (new.id, new.email,
           coalesce(nullif(new.raw_user_meta_data->>'name',''), split_part(new.email,'@',1)),
-          nullif(lower(new.raw_user_meta_data->>'username'),''),
           case when exists (select 1 from public.profiles where role='admin') then 'learner' else 'admin' end)
-  on conflict (id) do update set email=excluded.email, name=coalesce(nullif(excluded.name,''), public.profiles.name), username=coalesce(public.profiles.username, excluded.username);
+  on conflict (id) do nothing;
   return new;
 end $$;
 drop trigger if exists on_auth_user_created on auth.users;
@@ -281,50 +275,3 @@ grant execute on function public.get_my_exams() to authenticated;
 grant execute on function public.get_my_paper(bigint) to authenticated;
 grant execute on function public.submit_exam(bigint, jsonb) to authenticated;
 grant execute on function public.get_my_revision() to authenticated;
-
-
--- ---------- PROFILE / HISTORY / ANALYTICS ----------
-create or replace function public.get_my_attempts() returns jsonb
-language sql security definer stable set search_path = public as $$
-  select coalesce(jsonb_agg(jsonb_build_object(
-    'id', a.id, 'exam_id', a.exam_id, 'exam_title', coalesce(a.exam_title, case when a.kind='exam' then 'Exam' else 'Practice Test' end),
-    'kind', a.kind, 'total', a.total, 'correct', a.correct, 'wrong', a.wrong, 'skipped', a.skipped, 'created_at', a.created_at
-  ) order by a.created_at desc), '[]'::jsonb)
-  from public.attempts a where a.user_id = auth.uid();
-$$;
-
-create or replace function public.get_my_attempt_detail(p_attempt_id bigint) returns jsonb
-language plpgsql security definer stable set search_path = public as $$
-declare uid uuid := auth.uid(); rec jsonb;
-begin
-  if uid is null then raise exception 'Please sign in again.'; end if;
-  select jsonb_build_object(
-    'id', a.id, 'exam_id', a.exam_id, 'exam_title', coalesce(a.exam_title, case when a.kind='exam' then 'Exam' else 'Practice Test' end),
-    'kind', a.kind, 'total', a.total, 'correct', a.correct, 'wrong', a.wrong, 'skipped', a.skipped, 'created_at', a.created_at,
-    'review', d.details
-  ) into rec
-  from public.attempts a join public.attempt_details d on d.attempt_id = a.id
-  where a.id = p_attempt_id and a.user_id = uid;
-  if rec is null then raise exception 'Attempt not found.'; end if;
-  return rec;
-end $$;
-
-create or replace function public.get_my_profile_stats() returns jsonb
-language sql security definer stable set search_path = public as $$
-  select jsonb_build_object(
-    'attempts', count(*),
-    'total', coalesce(sum(total),0),
-    'correct', coalesce(sum(correct),0),
-    'wrong', coalesce(sum(wrong),0),
-    'skipped', coalesce(sum(skipped),0),
-    'best', coalesce(max(case when total>0 then round(correct::numeric*100/total) else 0 end),0),
-    'avg', coalesce(round(avg(case when total>0 then correct::numeric*100/total else 0 end)),0)
-  ) from public.attempts where user_id = auth.uid();
-$$;
-
-revoke all on function public.get_my_attempts() from public, anon;
-revoke all on function public.get_my_attempt_detail(bigint) from public, anon;
-revoke all on function public.get_my_profile_stats() from public, anon;
-grant execute on function public.get_my_attempts() to authenticated;
-grant execute on function public.get_my_attempt_detail(bigint) to authenticated;
-grant execute on function public.get_my_profile_stats() to authenticated;
