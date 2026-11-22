@@ -20,38 +20,35 @@ PART 1 - SUPABASE (database + logins)  ~10 minutes
 
 PART 2 - PUT THE WEBSITE ONLINE WITH VERCEL  ~10 minutes
 --------------------------------------------------------
-Vercel gets your files from GitHub, so use GitHub as a middle step.
-1. github.com -> Sign up (free) -> "New repository". Name: psc-master.
-   Private is fine. Click "Create repository".
-2. Click "uploading an existing file". Drag in these 4 files (NOT inside a folder):
-   index.html, app.js, config.js, style.css
-   Click "Commit changes".
-3. vercel.com -> "Sign up" -> "Continue with GitHub".
-4. "Add New..." -> "Project" -> find psc-master -> "Import".
-   Framework Preset: "Other". Leave everything else empty. Click "Deploy".
-5. After ~1 minute you get a link like https://psc-master.vercel.app
+This is a Next.js 16 application; Vercel detects it automatically.
+1. Push this repository to GitHub (already done).
+2. vercel.com -> "Sign up" -> "Continue with GitHub".
+3. "Add New..." -> "Project" -> find PSC_MASTER -> "Import".
+   Framework Preset: "Next.js" (auto-detected). Leave build settings default.
+   Add the environment variables from PART 2B, then click "Deploy".
+4. After ~1 minute you get a link like https://psc-master.vercel.app
    Send this link to your friends.
-To change the app later: GitHub repo -> "Add file" -> "Upload files" -> replace
-the file -> Commit. Vercel updates the website automatically in ~1 minute.
+To change the app later: edit the files, commit, and push to GitHub. Vercel
+rebuilds and redeploys automatically in ~1 minute.
 
 PART 2B - DEPLOYMENT CONFIG (database + object storage)
 --------------------------------------------------------
-The database stays in Supabase (PostgreSQL). Vercel serves the static files and
-runs the small /api/users function used by the admin panel.
+The database stays in Supabase (PostgreSQL). Next.js serves the app and runs the
+/api/users and /api/upload route handlers used by the admin panel.
 
 1. Vercel project -> Settings -> Environment Variables. Add for Production
    (and Preview/Development if you use them):
    - SUPABASE_URL = https://kcjnpwpgymdbiznfkejp.supabase.co
-   - SUPABASE_ANON_KEY = the publishable key already in config.js
+   - SUPABASE_ANON_KEY = Supabase -> Project Settings -> API -> publishable key
    - SUPABASE_SERVICE_ROLE_KEY = Supabase -> Project Settings -> API ->
-     service_role (secret; never put it in config.js or commit it)
+     service_role (secret; never commit it)
    - BLOB_READ_WRITE_TOKEN = Vercel -> Storage -> Blob -> Create store -> token
 2. Redeploy after changing environment variables (Deployments -> ... -> Redeploy).
 3. For local work copy .env.example to .env.local and fill in the same values.
    .env.local is ignored by Git and must never be committed.
 4. Object storage: create a Vercel Blob store, add BLOB_READ_WRITE_TOKEN, and
-   redeploy. Admins can then POST a multipart file named "file" to /api/upload
-   and receive a public URL (for example, from a future upload screen).
+   redeploy. Admins can use the Object storage card in Manage questions to
+   upload a file and copy its public URL.
 
 PART 3 - FIRST USE
 -------------------
