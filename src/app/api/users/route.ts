@@ -38,7 +38,7 @@ export async function GET() {
 
     const [listed, profilesResult] = await Promise.all([
       auth.service.auth.admin.listUsers({ perPage: 1000, page: 1 }),
-      auth.service.from('profiles').select('id,email,name,role,created_at').order('created_at', { ascending: true })
+      auth.service.from('profiles').select('id,email,name,username,role,created_at,disabled').order('created_at', { ascending: true })
     ])
     if (listed.error) return fail(listed.error.message, 500)
     if (profilesResult.error) return fail(profilesResult.error.message, 500)
@@ -50,7 +50,9 @@ export async function GET() {
         id: u.id,
         email: u.email || p?.email || '',
         name: p?.name || (u.user_metadata && u.user_metadata.name) || '',
+        username: p?.username || (u.user_metadata && u.user_metadata.username) || null,
         role: p?.role || 'learner',
+        disabled: Boolean(p?.disabled ?? u.user_metadata?.disabled),
         created_at: u.created_at || p?.created_at || null
       }
     })
@@ -104,15 +106,21 @@ export async function PATCH(request: Request) {
     const id = String(body.id || '')
     if (!id) return fail('Missing user id.')
 
-    const patch: Record<string, string> = {}
+    const isAdmin = (await auth.service.from('profiles').select('role').eq('id', auth.user.id).maybeSingle()).data?.role === 'admin'
+    // allow user to update own name/username
+    if (!isAdmin && id !== auth.user.id) return fail('Administrator access required.', 403)
+
+    const patch: Record<string, unknown> = {}
     if (body.name !== undefined) patch.name = String(body.name).trim()
-    if (body.email !== undefined) patch.email = String(body.email).trim().toLowerCase()
-    if (body.role !== undefined) {
+    if (body.username !== undefined) patch.username = String(body.username).trim().toLowerCase() || null
+    if (isAdmin && body.email !== undefined) patch.email = String(body.email).trim().toLowerCase()
+    if (isAdmin && body.role !== undefined) {
       if (!['admin', 'learner'].includes(body.role)) return fail('Invalid role.')
       patch.role = body.role
     }
+    if (isAdmin && body.disabled !== undefined) patch.disabled = Boolean(body.disabled)
 
-    if (patch.role === 'learner') {
+    if (isAdmin && patch.role === 'learner') {
       const { data: target } = await auth.service.from('profiles').select('role').eq('id', id).maybeSingle()
       if (target?.role === 'admin') {
         const { data: admins } = await auth.service.from('profiles').select('id').eq('role', 'admin')
@@ -123,6 +131,12 @@ export async function PATCH(request: Request) {
     if (Object.keys(patch).length) {
       const { error } = await auth.service.from('profiles').update(patch).eq('id', id)
       if (error) return fail(error.message, 500)
+      // also sync auth metadata for convenience
+      const meta: Record<string, unknown> = {}
+      if (patch.name !== undefined) meta.name = patch.name
+      if (patch.username !== undefined) meta.username = patch.username
+      if (patch.disabled !== undefined) meta.disabled = patch.disabled
+      if (Object.keys(meta).length) await auth.service.auth.admin.updateUserById(id, { user_metadata: meta })
     }
     return json({ ok: true })
   } catch (err) {

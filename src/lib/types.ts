@@ -4,8 +4,10 @@ export type Profile = {
   id: string
   email: string
   name: string
+  username?: string | null
   role: Role
   created_at?: string
+  disabled?: boolean
 }
 
 export type Question = {
@@ -29,6 +31,8 @@ export type Attempt = {
   id: number
   user_id: string
   exam_id: number | null
+  exam_title?: string | null
+  kind?: 'practice' | 'exam'
   total: number
   correct: number
   wrong: number
@@ -69,6 +73,8 @@ export type ManagedUser = {
   id: string
   email: string
   name: string
+  username?: string | null
   role: Role
   created_at: string | null
+  disabled?: boolean
 }

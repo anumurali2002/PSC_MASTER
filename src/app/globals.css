@@ -128,3 +128,13 @@ img,svg,video{max-width:100%;height:auto}
   .exam-actions .primary,.exam-actions .secondary{flex:1}
   .login-wrap,.info-page,.loading-shell{padding:16px}
 }
+
+.auth-links{display:flex;gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+.chart-svg{width:100%;height:auto;max-height:220px}
+.bar-wrap{display:grid;gap:10px}
+.bar-row{display:grid;grid-template-columns:minmax(120px,180px) 1fr auto;gap:10px;align-items:center;font-size:13px}
+.bar-bg{height:10px;background:#e8edf1;border-radius:999px;overflow:hidden}
+.bar-fill{height:100%;border-radius:999px}
+.bar-fill.good{background:var(--green)}.bar-fill.bad{background:#d45b5b}
+.table-wrap{overflow:auto}
+@media(max-width:700px){.bar-row{grid-template-columns:1fr;gap:4px}}
