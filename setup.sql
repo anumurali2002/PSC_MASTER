@@ -81,11 +81,12 @@ $$;
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.profiles (id, email, name, role)
+  insert into public.profiles (id, email, name, username, role)
   values (new.id, new.email,
           coalesce(nullif(new.raw_user_meta_data->>'name',''), split_part(new.email,'@',1)),
+          nullif(lower(new.raw_user_meta_data->>'username'),''),
           case when exists (select 1 from public.profiles where role='admin') then 'learner' else 'admin' end)
-  on conflict (id) do nothing;
+  on conflict (id) do update set email=excluded.email, name=coalesce(nullif(excluded.name,''), public.profiles.name), username=coalesce(public.profiles.username, excluded.username);
   return new;
 end $$;
 drop trigger if exists on_auth_user_created on auth.users;
