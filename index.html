@@ -32,7 +32,7 @@
         <button class="nav-item learner-only" data-page="examsets">Exams</button>
         <button class="nav-item learner-only" data-page="revision">Wrong answers</button>
         <button class="nav-item admin-only" data-page="manage">Manage questions</button>
-        <button class="nav-item admin-only" data-page="learners">Learners</button>
+        <button class="nav-item admin-only" data-page="learners">Users</button>
       </nav>
       <div class="side-bottom"><span id="currentUser"></span><button id="logoutBtn" class="text-button">Log out</button></div>
     </aside>
@@ -109,9 +109,20 @@
       </section>
 
       <section id="learnersPage" class="page hidden">
-        <div class="section-heading"><div><p class="eyebrow">ADMIN AREA</p><h3>Learners</h3><p class="muted">You can see completion and scores only, never individual answers.</p></div></div>
+        <div class="section-heading"><div><p class="eyebrow">ADMIN AREA</p><h3>Users &amp; admins</h3><p class="muted">Create accounts and change roles. Individual answers are never shown here.</p></div></div>
+        <div class="form-card">
+          <div class="section-heading form-title"><h3>Add a user</h3></div>
+          <form id="userForm" class="form-grid">
+            <label>Name<input id="newUserName" placeholder="Full name"></label>
+            <label>Email<input id="newUserEmail" type="email" required placeholder="user@example.com"></label>
+            <label>Password<input id="newUserPassword" type="password" required minlength="6" placeholder="At least 6 characters"></label>
+            <label>Role<select id="newUserRole"><option value="learner">Learner</option><option value="admin">Administrator</option></select></label>
+            <div class="form-actions"><button id="createUserBtn" class="primary" type="submit">Create user</button><span id="userFormMessage" class="success" aria-live="polite"></span></div>
+          </form>
+        </div>
+        <div class="section-heading"><div><h3>All users</h3><p class="muted">Scores and completion only, never individual answers.</p></div></div>
         <div id="learnerList" class="question-list"></div>
-        <p class="note">To add a learner: Supabase dashboard &rarr; Authentication &rarr; Users &rarr; Add user (tick Auto Confirm User). They appear here after their first sign-in is possible.</p>
+        <p class="note">The first account remains the primary admin. At least one admin must always exist.</p>
       </section>
 
       <section id="examPage" class="page hidden">

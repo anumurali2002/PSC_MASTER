@@ -49,7 +49,7 @@ function go(page) {
   document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
   $(page + "Page").classList.remove("hidden");
   document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("active", b.dataset.page === page));
-  $("pageTitle").textContent = ({ dashboard: "Overview", subjects: "Subjects & topics", revision: "Wrong answers", manage: "Manage questions", learners: "Learners", examsets: "Examinations", exam: "Practice test", result: "Test result" })[page] || page;
+  $("pageTitle").textContent = ({ dashboard: "Overview", subjects: "Subjects & topics", revision: "Wrong answers", manage: "Manage questions", learners: "Users", examsets: "Examinations", exam: "Practice test", result: "Test result" })[page] || page;
 }
 
 // ---------- learner: overview, subjects, practice ----------
@@ -276,12 +276,55 @@ async function renderAdminExamSets() {
 }
 
 // ---------- admin: learners ----------
+async function apiUsers(method, body) {
+  const { data } = await sb.auth.getSession();
+  const token = data.session && data.session.access_token;
+  const res = await fetch("/api/users", {
+    method,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(payload.error || "Request failed.");
+  return payload;
+}
 async function renderLearners() {
-  const [lr, attempts] = await Promise.all([ok(sb.from("profiles").select("id,email,name").eq("role", "learner")), fetchAll("attempts", "id,user_id,total,correct,created_at")]);
-  $("learnerList").innerHTML = lr.map(l => {
-    const a = attempts.filter(x => x.user_id === l.id), t = a.reduce((s, x) => s + x.total, 0), c = a.reduce((s, x) => s + x.correct, 0), last = a.map(x => x.created_at).sort().pop();
-    return `<article class="admin-q"><div class="admin-q-content"><b>${esc(l.name || l.email)}</b><br><small>${esc(l.email)}</small><p class="admin-q-answer">${a.length} tests · ${t} questions attempted · accuracy ${t ? pct(c, t) + "%" : "—"}${last ? " · last active " + esc(fmtDate(last)) : ""}</p></div></article>`;
-  }).join("") || '<p class="muted">No learners yet.</p>';
+  const [payload, attempts] = await Promise.all([apiUsers("GET"), fetchAll("attempts", "id,user_id,total,correct,created_at")]);
+  const users = payload.users || [];
+  $("learnerList").innerHTML = users.map(u => {
+    const a = attempts.filter(x => x.user_id === u.id), t = a.reduce((s, x) => s + x.total, 0), c = a.reduce((s, x) => s + x.correct, 0), last = a.map(x => x.created_at).sort().pop();
+    const isAdmin = u.role === "admin";
+    return `<article class="admin-q"><div class="admin-q-content"><b>${esc(u.name || u.email)}</b><br><small>${esc(u.email)}</small><p class="admin-q-answer"><span class="pill">${isAdmin ? "Administrator" : "Learner"}</span> · ${a.length} tests · ${t} questions attempted · accuracy ${t ? pct(c, t) + "%" : "—"}${last ? " · last active " + esc(fmtDate(last)) : ""}</p></div><div class="admin-q-actions"><select class="secondary small-btn" data-user-role="${esc(u.id)}" aria-label="Role for ${esc(u.email)}"><option value="learner" ${isAdmin ? "" : "selected"}>Learner</option><option value="admin" ${isAdmin ? "selected" : ""}>Admin</option></select><button class="text-button danger-text small-btn" type="button" data-delete-user="${esc(u.id)}" data-email="${esc(u.email)}">Delete</button></div></article>`;
+  }).join("") || '<p class="muted">No users yet.</p>';
+  document.querySelectorAll("[data-user-role]").forEach(s => s.onchange = () => run(async () => {
+    await apiUsers("PATCH", { id: s.dataset.userRole, role: s.value });
+    toast("Role updated.");
+    await renderLearners();
+  }));
+  document.querySelectorAll("[data-delete-user]").forEach(b => b.onclick = () => run(async () => {
+    if (!confirm("Delete " + b.dataset.email + "? This cannot be undone.")) return;
+    await apiUsers("DELETE", { id: b.dataset.deleteUser });
+    toast("User deleted.");
+    await renderLearners();
+  }));
+}
+async function createUser(e) {
+  e.preventDefault();
+  const body = {
+    name: $("newUserName").value.trim(),
+    email: $("newUserEmail").value.trim(),
+    password: $("newUserPassword").value,
+    role: $("newUserRole").value
+  };
+  $("createUserBtn").disabled = true;
+  $("userFormMessage").textContent = "Creating user…";
+  try {
+    await apiUsers("POST", body);
+    $("userForm").reset();
+    $("userFormMessage").textContent = "User created.";
+    await renderLearners();
+  } catch (err) { $("userFormMessage").textContent = err.message; }
+  finally { $("createUserBtn").disabled = false; }
 }
 
 // ---------- wiring ----------
@@ -304,4 +347,5 @@ $("questionForm").onsubmit = e => run(() => saveQuestion(e));
 $("cancelEditBtn").onclick = cancelQuestionEdit;
 $("exportBtn").onclick = exportCSV; $("importBtn").onclick = importQuestions; $("templateBtn").onclick = downloadTemplate;
 $("genBtn").onclick = () => run(generateExamSet);
+$("userForm").onsubmit = e => run(() => createUser(e));
 run(async () => { const { data } = await sb.auth.getSession(); if (data.session) await enterApp(); else showLogin(); });

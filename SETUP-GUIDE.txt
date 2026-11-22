@@ -13,10 +13,10 @@ PART 1 - SUPABASE (database + logins)  ~10 minutes
    >>> The FIRST account created becomes the ADMIN. Make yours first. <<<
 4. Left menu -> Authentication -> Sign In / Providers (or "Providers"/"Settings").
    Turn OFF "Allow new users to sign up". (Stops strangers from creating accounts.)
-5. Create each friend the same way as step 3 (email + password, tick
-   "Auto Confirm User"). Send them their email and password privately.
-   They are learners automatically. To change a password later: Authentication
-   -> Users -> click the user -> Send password recovery / Update.
+5. After the first admin exists, create other accounts from the app:
+   sign in as admin -> Users -> Add a user (choose Learner or Administrator).
+   Send credentials privately. To change a password later: Supabase ->
+   Authentication -> Users -> click the user -> Send password recovery / Update.
 
 PART 2 - PUT THE WEBSITE ONLINE WITH VERCEL  ~10 minutes
 --------------------------------------------------------
@@ -33,6 +33,24 @@ Vercel gets your files from GitHub, so use GitHub as a middle step.
    Send this link to your friends.
 To change the app later: GitHub repo -> "Add file" -> "Upload files" -> replace
 the file -> Commit. Vercel updates the website automatically in ~1 minute.
+
+PART 2B - DEPLOYMENT CONFIG (database + object storage)
+--------------------------------------------------------
+The database stays in Supabase (PostgreSQL). Vercel serves the static files and
+runs the small /api/users function used by the admin panel.
+
+1. Vercel project -> Settings -> Environment Variables. Add for Production
+   (and Preview/Development if you use them):
+   - SUPABASE_URL = https://myvlcnbuezfwzlxeaxyi.supabase.co
+   - SUPABASE_ANON_KEY = the publishable key already in config.js
+   - SUPABASE_SERVICE_ROLE_KEY = Supabase -> Project Settings -> API ->
+     service_role (secret; never put it in config.js or commit it)
+   - BLOB_READ_WRITE_TOKEN = Vercel -> Storage -> Blob -> Create store -> token
+2. Redeploy after changing environment variables (Deployments -> ... -> Redeploy).
+3. For local work copy .env.example to .env.local and fill in the same values.
+   .env.local is ignored by Git and must never be committed.
+4. Object storage: create a Vercel Blob store when uploads are needed. The app
+   does not use it yet; the token is reserved for that future upload code.
 
 PART 3 - FIRST USE
 -------------------
